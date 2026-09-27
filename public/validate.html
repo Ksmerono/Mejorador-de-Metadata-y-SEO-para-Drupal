@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validador de Contenidos SEO</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <nav class="nav-links">
+        <a href="/" class="nav-link">Generar metadatos</a>
+        <a href="/validate" class="nav-link active">Validar contenidos</a>
+      </nav>
+    </div>
+  </div>
+  <div class="container">
+    <header>
+      <img src="/logoDrupal.png" alt="Logo" class="logo">
+      <h1>Validador de Contenidos SEO</h1>
+      <p>Sube uno o varios archivos JSON para verificar que el título, el cuerpo y los meta tags generados están rellenos</p>
+    </header>
+
+    <div class="card upload-card" id="uploadCard">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-content">
+          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p class="drop-text">Arrastra archivos JSON aquí o haz clic para seleccionar</p>
+          <p class="drop-hint">Puedes seleccionar varios archivos a la vez · Formato: exportación de Drupal</p>
+        </div>
+        <input type="file" id="fileInput" accept=".json" multiple hidden>
+      </div>
+      <div id="fileList"></div>
+      <button class="btn btn-primary" id="validateBtn" disabled>
+        <span class="btn-text">Validar contenidos</span>
+        <span class="spinner" id="spinner" style="display:none"></span>
+      </button>
+    </div>
+
+    <div class="card progress-card" id="progressCard" style="display:none">
+      <h3>Validando...</h3>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <p class="progress-status" id="progressStatus">Iniciando...</p>
+      <div class="log-container" id="logContainer"></div>
+    </div>
+
+    <div class="card result-card" id="resultCard" style="display:none">
+      <div class="result-header">
+        <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <h3>Validación completada</h3>
+      </div>
+      <div class="result-stats" id="resultStats"></div>
+      <div id="resultDetails"></div>
+      <div class="result-actions">
+        <button class="btn btn-secondary" id="resetBtn">Validar otros archivos</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileListEl = document.getElementById('fileList');
+    const validateBtn = document.getElementById('validateBtn');
+    const spinner = document.getElementById('spinner');
+    const uploadCard = document.getElementById('uploadCard');
+    const progressCard = document.getElementById('progressCard');
+    const resultCard = document.getElementById('resultCard');
+    const progressFill = document.getElementById('progressFill');
+    const progressStatus = document.getElementById('progressStatus');
+    const logContainer = document.getElementById('logContainer');
+    const resultStats = document.getElementById('resultStats');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let selectedFiles = [];
+
+    const FIELD_LABELS = {
+      'title': 'Título',
+      'body': 'Cuerpo (body)',
+      'description': 'Meta Description',
+      'keywords': 'Meta Keywords',
+      'og_title': 'OG Title',
+      'og_description': 'OG Description',
+      'twitter_cards_title': 'Twitter Title',
+      'twitter_cards_description': 'Twitter Description',
+      'abstract': 'Abstract',
+    };
+
+    function updateValidateBtn() {
+      validateBtn.disabled = selectedFiles.length === 0;
+    }
+
+    function renderFileList() {
+      fileListEl.innerHTML = '';
+      selectedFiles.forEach((file, i) => {
+        const el = document.createElement('div');
+        el.className = 'file-info';
+        el.innerHTML = `
+          <span class="file-name">${file.name}</span>
+          <button class="btn-remove" data-index="${i}">&times;</button>
+        `;
+        el.querySelector('.btn-remove').addEventListener('click', () => {
+          selectedFiles.splice(i, 1);
+          renderFileList();
+          updateValidateBtn();
+        });
+        fileListEl.appendChild(el);
+      });
+      updateValidateBtn();
+    }
+
+    function addLog(msg, type) {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry log-' + (type || 'info');
+      entry.textContent = msg;
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files);
+      const validFiles = files.filter(f => f.name.endsWith('.json'));
+      if (validFiles.length !== files.length) {
+        alert('Solo se aceptan archivos JSON');
+      }
+      selectedFiles.push(...validFiles);
+      renderFileList();
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) {
+        selectedFiles.push(...Array.from(fileInput.files));
+        renderFileList();
+        fileInput.value = '';
+      }
+    });
+
+    validateBtn.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+
+      uploadCard.style.display = 'none';
+      progressCard.style.display = 'block';
+      resultCard.style.display = 'none';
+      logContainer.innerHTML = '';
+      progressFill.style.width = '0%';
+      progressFill.style.background = '';
+      progressStatus.textContent = 'Enviando archivos...';
+      addLog(`Enviando ${selectedFiles.length} archivo(s) al servidor...`);
+
+      const formData = new FormData();
+      for (const file of selectedFiles) {
+        formData.append('files', file);
+      }
+
+      try {
+        progressFill.style.width = '30%';
+        progressStatus.textContent = 'Procesando...';
+
+        const response = await fetch('/api/validate', {
+          method: 'POST',
+          body: formData,
+        });
+
+        progressFill.style.width = '80%';
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || 'Error ' + response.status);
+        }
+
+        const result = await response.json();
+        progressFill.style.width = '100%';
+        progressStatus.textContent = '¡Completado!';
+
+        addLog(`Archivos procesados: ${result.summary.totalFiles}`, 'success');
+        addLog(`Nodos totales: ${result.summary.totalNodes}`, 'success');
+        addLog(`Válidos: ${result.summary.validNodes}`, 'success');
+        if (result.summary.invalidNodes > 0) {
+          addLog(`Con errores: ${result.summary.invalidNodes}`, 'error');
+        }
+
+        setTimeout(() => {
+          progressCard.style.display = 'none';
+          resultCard.style.display = 'block';
+          renderResults(result);
+        }, 500);
+
+      } catch (err) {
+        progressFill.style.width = '100%';
+        progressFill.style.background = '#dc3545';
+        progressStatus.textContent = 'Error';
+        addLog('Error: ' + err.message, 'error');
+      }
+    });
+
+    function renderResults(data) {
+      const { summary, fileResults } = data;
+
+      resultStats.innerHTML = `
+        <div class="stat">
+          <span class="stat-value">${summary.totalFiles}</span>
+          <span class="stat-label">Archivos</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">${summary.totalNodes}</span>
+          <span class="stat-label">Total nodos</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value success">${summary.validNodes}</span>
+          <span class="stat-label">Válidos</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value ${summary.invalidNodes > 0 ? 'error' : 'success'}">${summary.invalidNodes}</span>
+          <span class="stat-label">Con errores</span>
+        </div>
+      `;
+
+      const details = document.getElementById('resultDetails');
+      details.innerHTML = '';
+
+      if (summary.invalidNodes === 0) {
+        details.innerHTML = '<div class="node-no-changes" style="padding:1rem;text-align:center">Todos los contenidos son válidos ✓</div>';
+        return;
+      }
+
+      for (const fileResult of fileResults) {
+        const group = document.createElement('div');
+        group.className = 'node-item';
+
+        const header = document.createElement('div');
+        header.className = 'node-header';
+
+        const titleInfo = document.createElement('div');
+        titleInfo.className = 'node-title-info';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'node-title';
+        titleEl.textContent = fileResult.fileName;
+
+        const statEl = document.createElement('span');
+        statEl.style.cssText = 'font-size:0.75rem;color:#6c757d;flex-shrink:0';
+        statEl.textContent = `${fileResult.validCount}/${fileResult.nodeCount} válidos`;
+
+        const badge = document.createElement('span');
+        badge.className = 'node-badge ' + (fileResult.valid ? 'badge-ok' : 'badge-error');
+        badge.textContent = fileResult.valid ? 'OK' : (fileResult.error || fileResult.invalidCount + ' error(es)');
+
+        const toggle = document.createElement('button');
+        toggle.className = 'node-toggle';
+        toggle.textContent = fileResult.invalidCount > 0 ? '▴' : '▾';
+
+        titleInfo.append(titleEl, statEl);
+        header.append(titleInfo, badge, toggle);
+
+        const body = document.createElement('div');
+        body.className = 'node-body' + (fileResult.invalidCount > 0 ? ' open' : '');
+
+        if (fileResult.error) {
+          body.innerHTML = '<div class="node-error-msg">' + fileResult.error + '</div>';
+        } else {
+          const invalidNodes = fileResult.nodes.filter(n => !n.valid);
+          for (const node of invalidNodes) {
+            const nodeItem = document.createElement('div');
+            nodeItem.style.cssText = 'margin:0.5rem 0;border:1px solid #f0f0f0;border-radius:6px;overflow:hidden';
+
+            const nodeHeader = document.createElement('div');
+            nodeHeader.className = 'node-header';
+
+            const nodeTitleInfo = document.createElement('div');
+            nodeTitleInfo.className = 'node-title-info';
+
+            const nodeTitle = document.createElement('span');
+            nodeTitle.className = 'node-title';
+            nodeTitle.textContent = '[' + node.nid + '] ' + node.title;
+
+            if (node.langcode) {
+              const lang = document.createElement('span');
+              lang.className = 'node-lang';
+              lang.textContent = node.langcode;
+              nodeTitleInfo.append(nodeTitle, lang);
+            } else {
+              nodeTitleInfo.appendChild(nodeTitle);
+            }
+
+            const nodeBadge = document.createElement('span');
+            nodeBadge.className = 'node-badge badge-error';
+            nodeBadge.textContent = node.issues.length + ' issue(s)';
+
+            const nodeToggle = document.createElement('button');
+            nodeToggle.className = 'node-toggle';
+            nodeToggle.textContent = '▴';
+
+            nodeHeader.append(nodeTitleInfo, nodeBadge, nodeToggle);
+
+            const nodeBody = document.createElement('div');
+            nodeBody.className = 'node-body open';
+
+            for (const issue of node.issues) {
+              const row = document.createElement('div');
+              row.className = 'change-row';
+
+              const tag = document.createElement('div');
+              tag.className = 'change-tag';
+              tag.textContent = FIELD_LABELS[issue.field] || issue.field;
+
+              const vals = document.createElement('div');
+              vals.className = 'change-values';
+
+              const val = document.createElement('div');
+              val.className = 'change-old';
+              val.style.cssText = 'text-decoration:none;color:#dc3545';
+              val.textContent = issue.status === 'vacio' ? 'vacío' : issue.status;
+
+              vals.appendChild(val);
+              row.append(tag, vals);
+              nodeBody.appendChild(row);
+            }
+
+            nodeToggle.addEventListener('click', () => {
+              nodeBody.classList.toggle('open');
+              nodeToggle.textContent = nodeBody.classList.contains('open') ? '▴' : '▾';
+            });
+
+            nodeItem.append(nodeHeader, nodeBody);
+            body.appendChild(nodeItem);
+          }
+
+          if (fileResult.validCount > 0) {
+            const ok = document.createElement('div');
+            ok.className = 'node-no-changes';
+            ok.style.padding = '0.75rem';
+            ok.textContent = fileResult.validCount + ' nodo(s) válido(s) sin issues';
+            body.appendChild(ok);
+          }
+        }
+
+        toggle.addEventListener('click', () => {
+          body.classList.toggle('open');
+          toggle.textContent = body.classList.contains('open') ? '▴' : '▾';
+        });
+
+        group.append(header, body);
+        details.appendChild(group);
+      }
+    }
+
+    resetBtn.addEventListener('click', () => {
+      resultCard.style.display = 'none';
+      uploadCard.style.display = 'block';
+      selectedFiles = [];
+      renderFileList();
+      progressFill.style.width = '0%';
+      progressFill.style.background = '';
+    });
+  </script>
+</body>
+</html>

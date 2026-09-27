@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mejorador SEO / Metadata</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <nav class="nav-links">
+        <a href="/" class="nav-link active">Generar metadatos</a>
+        <a href="/validate" class="nav-link">Validar contenidos</a>
+      </nav>
+    </div>
+  </div>
+  <div class="container">
+    <header>
+      <img src="/logoDrupal.png" alt="Logo" class="logo">
+      <h1>Mejorador SEO / Metadata</h1>
+      <p>Sube tu archivo JSON de contenidos y genera meta tags SEO optimizados por IA</p>
+    </header>
+
+    <div class="card upload-card" id="uploadCard">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-content">
+          <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p class="drop-text">Arrastra tu archivo JSON aquí o haz clic para seleccionar</p>
+          <p class="drop-hint">Formato: exportación de Drupal (array de nodos)</p>
+        </div>
+        <input type="file" id="fileInput" accept=".json" hidden>
+      </div>
+      <div class="file-info" id="fileInfo" style="display:none">
+        <span class="file-name" id="fileName"></span>
+        <button class="btn-remove" id="removeFile">&times;</button>
+      </div>
+      <button class="btn btn-primary" id="processBtn" disabled>
+        <span class="btn-text">Procesar con IA</span>
+        <span class="spinner" id="spinner" style="display:none"></span>
+      </button>
+    </div>
+
+    <div class="card progress-card" id="progressCard" style="display:none">
+      <h3>Procesando...</h3>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <p class="progress-status" id="progressStatus">Iniciando...</p>
+      <div class="log-container" id="logContainer"></div>
+    </div>
+
+    <div class="card result-card" id="resultCard" style="display:none">
+      <div class="result-header">
+        <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <h3>Procesamiento completado</h3>
+      </div>
+      <div class="result-stats" id="resultStats"></div>
+      <div class="result-actions">
+        <a class="btn btn-download" id="downloadBtn" download>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Descargar JSON mejorado
+        </a>
+        <button class="btn btn-secondary" id="resetBtn">Procesar otro archivo</button>
+      </div>
+    </div>
+
+    <div class="card details-card" id="detailsCard" style="display:none">
+      <h3 class="details-title">Resumen de cambios por contenido</h3>
+      <div id="detailsList"></div>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const removeFile = document.getElementById('removeFile');
+    const processBtn = document.getElementById('processBtn');
+    const spinner = document.getElementById('spinner');
+    const uploadCard = document.getElementById('uploadCard');
+    const progressCard = document.getElementById('progressCard');
+    const resultCard = document.getElementById('resultCard');
+    const detailsCard = document.getElementById('detailsCard');
+    const detailsList = document.getElementById('detailsList');
+    const progressFill = document.getElementById('progressFill');
+    const progressStatus = document.getElementById('progressStatus');
+    const logContainer = document.getElementById('logContainer');
+    const resultStats = document.getElementById('resultStats');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let selectedFile = null;
+
+    const TAG_LABELS = {
+      'description': 'Meta Description',
+      'keywords': 'Meta Keywords',
+      'og_title': 'OG Title',
+      'og_description': 'OG Description',
+      'twitter_cards_title': 'Twitter Title',
+      'twitter_cards_description': 'Twitter Description',
+      'abstract': 'Abstract',
+    };
+
+    function updateProcessBtn() {
+      processBtn.disabled = !selectedFile;
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) selectFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) selectFile(fileInput.files[0]);
+    });
+
+    removeFile.addEventListener('click', () => {
+      selectedFile = null;
+      fileInput.value = '';
+      fileInfo.style.display = 'none';
+      dropZone.style.display = 'block';
+      updateProcessBtn();
+    });
+
+    function selectFile(file) {
+      if (!file.name.endsWith('.json')) {
+        alert('Por favor selecciona un archivo JSON');
+        return;
+      }
+      selectedFile = file;
+      fileName.textContent = file.name;
+      fileInfo.style.display = 'flex';
+      dropZone.style.display = 'none';
+      updateProcessBtn();
+    }
+
+    function addLog(msg, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = msg;
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function renderChanges(processed, errors) {
+      detailsList.innerHTML = '';
+
+      const okItems = Array.isArray(processed) ? processed : [];
+      const errItems = Array.isArray(errors) ? errors : [];
+
+      if (okItems.length === 0 && errItems.length === 0) {
+        detailsList.innerHTML = '<div class="no-data">No hay datos disponibles</div>';
+        return;
+      }
+
+      const all = [
+        ...okItems.map(r => ({ ...r, _error: false })),
+        ...errItems.map(e => ({ ...e, _error: true, changes: [] })),
+      ];
+      all.sort((a, b) => a.index - b.index);
+
+      for (const node of all) {
+        const item = document.createElement('div');
+        item.className = 'node-item';
+
+        const header = document.createElement('div');
+        header.className = 'node-header';
+
+        const titleInfo = document.createElement('div');
+        titleInfo.className = 'node-title-info';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'node-title';
+        titleEl.textContent = node.title || 'Sin título';
+
+        const langEl = document.createElement('span');
+        langEl.className = 'node-lang';
+        langEl.textContent = node.langcode || '';
+
+        const badge = document.createElement('span');
+        badge.className = 'node-badge ' + (node._error ? 'badge-error' : 'badge-ok');
+        badge.textContent = node._error ? 'Error' : 'OK';
+
+        const toggle = document.createElement('button');
+        toggle.className = 'node-toggle';
+        toggle.textContent = '▴';
+        toggle.addEventListener('click', () => {
+          body.classList.toggle('open');
+          toggle.textContent = body.classList.contains('open') ? '▴' : '▾';
+        });
+
+        titleInfo.append(titleEl, langEl);
+        header.append(titleInfo, badge, toggle);
+        item.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'node-body open';
+
+        if (node._error) {
+          const errEl = document.createElement('div');
+          errEl.className = 'node-error-msg';
+          errEl.textContent = node.error;
+          body.appendChild(errEl);
+        } else if (!node.changes || node.changes.length === 0) {
+          const noChanges = document.createElement('div');
+          noChanges.className = 'node-no-changes';
+          noChanges.textContent = 'Sin cambios detectados';
+          body.appendChild(noChanges);
+        } else {
+          for (const ch of node.changes) {
+            const row = document.createElement('div');
+            row.className = 'change-row';
+
+            const tagLabel = document.createElement('div');
+            tagLabel.className = 'change-tag';
+            tagLabel.textContent = TAG_LABELS[ch.tag] || ch.tag;
+
+            const values = document.createElement('div');
+            values.className = 'change-values';
+
+            const oldVal = document.createElement('div');
+            oldVal.className = 'change-old';
+            oldVal.textContent = ch.old;
+
+            const arrow = document.createElement('span');
+            arrow.className = 'change-arrow';
+            arrow.textContent = '→';
+
+            const newVal = document.createElement('div');
+            newVal.className = 'change-new';
+            newVal.textContent = ch.new;
+
+            values.append(oldVal, arrow, newVal);
+            row.append(tagLabel, values);
+            body.appendChild(row);
+          }
+        }
+
+        item.appendChild(body);
+        detailsList.appendChild(item);
+      }
+    }
+
+    processBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      uploadCard.style.display = 'none';
+      progressCard.style.display = 'block';
+      resultCard.style.display = 'none';
+      detailsCard.style.display = 'none';
+      logContainer.innerHTML = '';
+      progressFill.style.width = '0%';
+      progressFill.style.background = '';
+      progressStatus.textContent = 'Iniciando...';
+      addLog('Enviando archivo al servidor...');
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        progressFill.style.width = '10%';
+        progressStatus.textContent = 'Conectando con IA...';
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        progressFill.style.width = '90%';
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || `Error ${response.status}`);
+        }
+
+        const result = await response.json();
+        progressFill.style.width = '100%';
+        progressStatus.textContent = '¡Completado!';
+
+        addLog(`Archivo procesado: ${result.total} contenido(s)`);
+        addLog(`Procesados correctamente: ${result.processed}`, 'success');
+
+        if (result.errors > 0) {
+          addLog(`Errores: ${result.errors}`, 'error');
+          result.errorDetails.forEach(e => {
+            addLog(`[${e.index}] "${e.title}": ${e.error}`, 'error');
+          });
+        }
+
+        setTimeout(() => {
+          progressCard.style.display = 'none';
+          resultCard.style.display = 'block';
+          detailsCard.style.display = 'block';
+
+          resultStats.innerHTML = `
+            <div class="stat">
+              <span class="stat-value">${result.total}</span>
+              <span class="stat-label">Total contenidos</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value success">${result.processed}</span>
+              <span class="stat-label">Procesados OK</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value ${result.errors > 0 ? 'error' : 'success'}">${result.errors}</span>
+              <span class="stat-label">Errores</span>
+            </div>
+          `;
+
+          downloadBtn.href = result.downloadUrl;
+          renderChanges(result.nodeDetails || [], result.errorDetails || []);
+        }, 500);
+
+      } catch (err) {
+        progressFill.style.width = '100%';
+        progressFill.style.background = '#dc3545';
+        progressStatus.textContent = 'Error';
+        addLog(`Error: ${err.message}`, 'error');
+        addLog('Reintenta o verifica que LM Studio esté corriendo en http://127.0.0.1:1234', 'error');
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      resultCard.style.display = 'none';
+      detailsCard.style.display = 'none';
+      uploadCard.style.display = 'block';
+      selectedFile = null;
+      fileInput.value = '';
+      fileInfo.style.display = 'none';
+      dropZone.style.display = 'block';
+      progressFill.style.width = '0%';
+      progressFill.style.background = '';
+      updateProcessBtn();
+    });
+  </script>
+</body>
+</html>

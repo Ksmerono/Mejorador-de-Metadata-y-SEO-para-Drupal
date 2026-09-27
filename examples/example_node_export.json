@@ -1,0 +1,199 @@
+[
+  {
+    "nid": [
+      { "value": "1001" }
+    ],
+    "uuid": [
+      { "value": "a1b2c3d4-1111-2222-3333-444455556666" }
+    ],
+    "vid": [
+      { "value": "2001" }
+    ],
+    "langcode": [
+      { "value": "es" }
+    ],
+    "type": [
+      { "target_id": "article" }
+    ],
+    "revision_timestamp": [
+      { "value": "1780000000" }
+    ],
+    "revision_uid": [
+      { "target_id": "1" }
+    ],
+    "revision_log": [],
+    "status": [
+      { "value": "1" }
+    ],
+    "uid": [
+      { "target_id": "1" }
+    ],
+    "title": [
+      { "value": "Cómo mejorar el SEO de tus contenidos" }
+    ],
+    "created": [
+      { "value": "1780000000" }
+    ],
+    "changed": [
+      { "value": "1780000000" }
+    ],
+    "promote": [
+      { "value": "1" }
+    ],
+    "sticky": [
+      { "value": "0" }
+    ],
+    "default_langcode": [
+      { "value": "1" }
+    ],
+    "revision_default": [
+      { "value": "1" }
+    ],
+    "revision_translation_affected": [
+      { "value": "1" }
+    ],
+    "ds_switch": [],
+    "path": [
+      {
+        "alias": "/blog/como-mejorar-seo-contenidos",
+        "pid": "301",
+        "langcode": "es"
+      }
+    ],
+    "rh_action": [
+      { "value": "bundle_default" }
+    ],
+    "rh_redirect": [],
+    "rh_redirect_response": [
+      { "value": "301" }
+    ],
+    "rh_redirect_fallback_action": [
+      { "value": "bundle_default" }
+    ],
+    "menu_link": [],
+    "content_translation_source": [
+      { "value": "und" }
+    ],
+    "content_translation_outdated": [
+      { "value": "0" }
+    ],
+    "body": [
+      {
+        "value": "<p>Optimizar los metadatos de una web es clave para mejorar su posicionamiento en los buscadores. En esta guía repasamos las buenas prácticas para escribir títulos, descripciones y etiquetas sociales que aumenten el tráfico orgánico.</p><p>La meta description debe resumir el contenido en 120-155 caracteres e incluir la palabra clave principal de forma natural.</p>",
+        "summary": "Guía práctica para optimizar títulos, descripciones y etiquetas sociales de tus contenidos.",
+        "format": "full_html"
+      }
+    ],
+    "field_author": [
+      { "target_id": "5" }
+    ],
+    "field_image_main": [
+      {
+        "target_id": "700",
+        "alt": "Infografía sobre optimización SEO",
+        "title": "",
+        "width": "1920",
+        "height": "400"
+      }
+    ],
+    "field_news_date": [
+      { "value": "2026-01-15" }
+    ],
+    "field_category": [
+      { "target_id": "12" }
+    ],
+    "metatag": [
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "title",
+          "content": "[current-page:title] | [site:name]"
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "description",
+          "content": "Guía práctica para optimizar el SEO de tus contenidos con metadatos efectivos."
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "keywords",
+          "content": "seo, metadatos, optimizacion, posicionamiento, meta description"
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "abstract",
+          "content": "Guía práctica para optimizar títulos, descripciones y etiquetas sociales."
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "robots",
+          "content": "index, follow"
+        }
+      },
+      {
+        "tag": "link",
+        "attributes": {
+          "rel": "image_src",
+          "href": "[node:field_image_main]"
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "og_title",
+          "content": "Cómo mejorar el SEO de tus contenidos"
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "og_description",
+          "content": "Descubre las claves para optimizar los metadatos de tu web y mejorar tu posicionamiento."
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "og_image",
+          "content": "[node:field_image_main:original]"
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "twitter_cards_title",
+          "content": "Cómo mejorar el SEO de tus contenidos"
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "twitter_cards_description",
+          "content": "[node:summary]"
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "twitter_cards_image",
+          "content": "[node:field_image_main:large]"
+        }
+      },
+      {
+        "tag": "meta",
+        "attributes": {
+          "name": "twitter_cards_type",
+          "content": "summary_large_image"
+        }
+      }
+    ]
+  }
+]
